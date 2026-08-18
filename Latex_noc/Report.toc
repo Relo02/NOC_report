@@ -1,0 +1,59 @@
+\babel@toc {english}{}\relax 
+\contentsline {section}{\numberline {1}Introduction}{2}{section.1}%
+\contentsline {paragraph}{Contributions of this report.}{3}{paragraph*.1}%
+\contentsline {section}{\numberline {2}Problem analysis}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}System overview}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Environment representation}{5}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Plant model and state-space formulation}{5}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Navigation problem statement}{6}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Formulation of the optimization program}{7}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Reference generation: $A^\star ${} as a discrete program}{7}{subsection.3.1}%
+\contentsline {paragraph}{Rolling horizon.}{7}{paragraph*.12}%
+\contentsline {subsection}{\numberline {3.2}Model discretization}{7}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The nonlinear MPC program}{8}{subsection.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.1}Decision variables and cost}{8}{subsubsection.3.3.1}%
+\contentsline {subsubsection}{\numberline {3.3.2}Obstacle avoidance as a smooth barrier}{9}{subsubsection.3.3.2}%
+\contentsline {paragraph}{Sentinel padding.}{10}{paragraph*.24}%
+\contentsline {subsubsection}{\numberline {3.3.3}Constraints}{10}{subsubsection.3.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.4}Terminal cost, stability and recursive feasibility}{10}{subsubsection.3.3.4}%
+\contentsline {subsubsection}{\numberline {3.3.5}Reference trajectory and warm start}{12}{subsubsection.3.3.5}%
+\contentsline {subsubsection}{\numberline {3.3.6}On the absence of integral action}{12}{subsubsection.3.3.6}%
+\contentsline {section}{\numberline {4}Optimization procedure}{12}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Problem dimensions and structure}{12}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Solver methodology}{13}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Implementation and configuration}{13}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Offline weight tuning by per-axis Gaussian processes}{14}{subsection.4.4}%
+\contentsline {subsubsection}{\numberline {4.4.1}The tuning problem}{14}{subsubsection.4.4.1}%
+\contentsline {subsubsection}{\numberline {4.4.2}Objective}{14}{subsubsection.4.4.2}%
+\contentsline {subsubsection}{\numberline {4.4.3}Per-axis surrogates and coordinate descent}{14}{subsubsection.4.4.3}%
+\contentsline {paragraph}{Separability.}{14}{paragraph*.39}%
+\contentsline {paragraph}{Sequential update and ordering.}{15}{paragraph*.40}%
+\contentsline {paragraph}{Significance floor.}{15}{paragraph*.41}%
+\contentsline {section}{\numberline {5}Performance analysis}{15}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Experimental setup}{15}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Baseline versus tuned weights in closed loop}{16}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}The rolling-horizon local minimum}{17}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Weight tuning by per-axis Gaussian processes}{17}{subsection.5.4}%
+\contentsline {paragraph}{Order matters more than the surrogate.}{19}{paragraph*.47}%
+\contentsline {subsection}{\numberline {5.5}Trajectory comparison}{19}{subsection.5.5}%
+\contentsline {subsection}{\numberline {5.6}Which weights matter: sensitivity and ablation}{19}{subsection.5.6}%
+\contentsline {subsection}{\numberline {5.7}Prediction horizon and real-time feasibility}{22}{subsection.5.7}%
+\contentsline {subsection}{\numberline {5.8}Warm start}{23}{subsection.5.8}%
+\contentsline {subsection}{\numberline {5.9}Sampling time and duty cycle}{23}{subsection.5.9}%
+\contentsline {subsection}{\numberline {5.10}Barrier shaping}{25}{subsection.5.10}%
+\contentsline {paragraph}{Steepness $\alpha _{\mathrm {obs}}$ trades clearance for progress, monotonically.}{25}{paragraph*.61}%
+\contentsline {paragraph}{Height $W_{\mathrm {obs}}$ is a cliff, not a trade-off.}{26}{paragraph*.62}%
+\contentsline {paragraph}{The cliff belongs to the pair $(W_{\mathrm {obs}},r_{\mathrm {obs}})$, not to $W_{\mathrm {obs}}$.}{26}{paragraph*.63}%
+\contentsline {subsection}{\numberline {5.11}Effort and rate penalties}{26}{subsection.5.11}%
+\contentsline {subsection}{\numberline {5.12}Cost of the barrier terms}{27}{subsection.5.12}%
+\contentsline {subsection}{\numberline {5.13}Terminal weight}{28}{subsection.5.13}%
+\contentsline {subsection}{\numberline {5.14}Robustness to model mismatch}{28}{subsection.5.14}%
+\contentsline {subsection}{\numberline {5.15}Evidence from the physical robot}{29}{subsection.5.15}%
+\contentsline {subsection}{\numberline {5.16}Summary of design guidelines}{30}{subsection.5.16}%
+\contentsline {section}{\numberline {6}Discussion and limitations}{30}{section.6}%
+\contentsline {paragraph}{What the formulation guarantees, and what it does not.}{30}{paragraph*.75}%
+\contentsline {paragraph}{The weakest link is not the optimizer.}{30}{paragraph*.76}%
+\contentsline {paragraph}{Limits of the tuning.}{31}{paragraph*.77}%
+\contentsline {paragraph}{Scope of the numbers.}{31}{paragraph*.78}%
+\contentsline {section}{\numberline {7}Conclusions}{31}{section.7}%
+\contentsline {section}{Reproducibility}{32}{section.7}%

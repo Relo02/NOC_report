@@ -1,0 +1,58 @@
+\begin{thebibliography}{10}
+
+\bibitem{ames2019cbf}
+Aaron~D. Ames, Samuel Coogan, Magnus Egerstedt, Gennaro Notomista, Koushil Sreenath, and Paulo Tabuada.
+\newblock Control barrier functions: Theory and applications.
+\newblock In {\em 18th European Control Conference (ECC)}, pages 3420--3431, 2019.
+
+\bibitem{andersson2019casadi}
+Joel A.~E. Andersson, Joris Gillis, Greg Horn, James~B. Rawlings, and Moritz Diehl.
+\newblock {CasADi} -- a software framework for nonlinear optimization and optimal control.
+\newblock {\em Mathematical Programming Computation}, 11(1):1--36, 2019.
+
+\bibitem{chen1998quasi}
+Hong Chen and Frank Allg{\"o}wer.
+\newblock A quasi-infinite horizon nonlinear model predictive control scheme with guaranteed stability.
+\newblock {\em Automatica}, 34(10):1205--1217, 1998.
+
+\bibitem{diehl2005realtime}
+Moritz Diehl, Rolf Findeisen, Frank Allg{\"o}wer, Hans~Georg Bock, and Johannes~P. Schl{\"o}der.
+\newblock Nominal stability of real-time iteration scheme for nonlinear model predictive control.
+\newblock In {\em IEE Proceedings -- Control Theory and Applications}, volume 152, pages 296--308, 2005.
+
+\bibitem{champ}
+Juan~Miguel Jimeno.
+\newblock {CHAMP}: Hierarchical controller for highly dynamic quadrupedal locomotion.
+\newblock \url{https://github.com/chvmp/champ}, 2020.
+
+\bibitem{mayne2000constrained}
+David~Q. Mayne, James~B. Rawlings, Christopher~V. Rao, and Pierre O.~M. Scokaert.
+\newblock Constrained model predictive control: Stability and optimality.
+\newblock {\em Automatica}, 36(6):789--814, 2000.
+
+\bibitem{ortolani2026bo}
+Lorenzo Ortolani, Gabriel Voss, Gabriele Beltrami, Francesco Dorati, and Tommaso~Felice Banfi.
+\newblock Bayesian optimization for learning nonlinear {MPC} in autonomous agent navigation.
+\newblock Talos Robotics AI, Milan, Italy. Companion paper of the \texttt{Go2\_navigation} project, 2026.
+
+\bibitem{rasmussen2006gp}
+Carl~E. Rasmussen and Christopher K.~I. Williams.
+\newblock {\em Gaussian Processes for Machine Learning}.
+\newblock MIT Press, 2006.
+
+\bibitem{rawlings2017mpc}
+James~B. Rawlings, David~Q. Mayne, and Moritz~M. Diehl.
+\newblock {\em Model Predictive Control: Theory, Computation, and Design}.
+\newblock Nob Hill Publishing, 2 edition, 2017.
+
+\bibitem{shahriari2016bo}
+Bobak Shahriari, Kevin Swersky, Ziyu Wang, Ryan~P. Adams, and Nando de~Freitas.
+\newblock Taking the human out of the loop: A review of {B}ayesian optimization.
+\newblock {\em Proceedings of the IEEE}, 104(1):148--175, 2016.
+
+\bibitem{wachter2006ipopt}
+Andreas W{\"a}chter and Lorenz~T. Biegler.
+\newblock On the implementation of an interior-point filter line-search algorithm for large-scale nonlinear programming.
+\newblock {\em Mathematical Programming}, 106(1):25--57, 2006.
+
+\end{thebibliography}
