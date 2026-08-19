@@ -20,10 +20,27 @@ Moritz Diehl, Rolf Findeisen, Frank Allg{\"o}wer, Hans~Georg Bock, and Johannes~
 \newblock Nominal stability of real-time iteration scheme for nonlinear model predictive control.
 \newblock In {\em IEE Proceedings -- Control Theory and Applications}, volume 152, pages 296--308, 2005.
 
+\bibitem{hyun2014trot}
+Dong~Jin Hyun, Sangok Seok, Jongwoo Lee, and Sangbae Kim.
+\newblock High speed trot-running: implementation of a hierarchical controller using proprioceptive impedance control on the {MIT} {C}heetah.
+\newblock {\em The International Journal of Robotics Research}, 33(11):1417--1445, 2014.
+
 \bibitem{champ}
 Juan~Miguel Jimeno.
 \newblock {CHAMP}: Hierarchical controller for highly dynamic quadrupedal locomotion.
 \newblock \url{https://github.com/chvmp/champ}, 2020.
+
+\bibitem{lee2013hierarchical}
+Jongwoo Lee.
+\newblock Hierarchical controller for highly dynamic locomotion utilizing pattern modulation and impedance control: implementation on the {MIT} {C}heetah robot.
+\newblock {M.Sc.} thesis, Massachusetts Institute of Technology, Department of Mechanical Engineering, Cambridge, MA, USA, 2013.
+\newblock \url{https://dspace.mit.edu/handle/1721.1/85490}.
+
+\bibitem{li2025amo}
+Jialong Li, Xuxin Cheng, Tianshu Huang, Shiqi Yang, Ri-Zhao Qiu, and Xiaolong Wang.
+\newblock {AMO}: Adaptive motion optimization for hyper-dexterous humanoid whole-body control.
+\newblock In {\em Proceedings of Robotics: Science and Systems ({RSS})}, 2025.
+\newblock \url{https://arxiv.org/abs/2505.03738}.
 
 \bibitem{mayne2000constrained}
 David~Q. Mayne, James~B. Rawlings, Christopher~V. Rao, and Pierre O.~M. Scokaert.
@@ -35,6 +52,11 @@ Lorenzo Ortolani, Gabriel Voss, Gabriele Beltrami, Francesco Dorati, and Tommaso
 \newblock Bayesian optimization for learning nonlinear {MPC} in autonomous agent navigation.
 \newblock Talos Robotics AI, Milan, Italy. Companion paper of the \texttt{Go2\_navigation} project, 2026.
 
+\bibitem{raibert1986legged}
+Marc~H. Raibert.
+\newblock {\em Legged Robots That Balance}.
+\newblock MIT Press, Cambridge, MA, USA, 1986.
+
 \bibitem{rasmussen2006gp}
 Carl~E. Rasmussen and Christopher K.~I. Williams.
 \newblock {\em Gaussian Processes for Machine Learning}.
@@ -44,6 +66,18 @@ Carl~E. Rasmussen and Christopher K.~I. Williams.
 James~B. Rawlings, David~Q. Mayne, and Moritz~M. Diehl.
 \newblock {\em Model Predictive Control: Theory, Computation, and Design}.
 \newblock Nob Hill Publishing, 2 edition, 2017.
+
+\bibitem{rudin2022walk}
+Nikita Rudin, David Hoeller, Philipp Reist, and Marco Hutter.
+\newblock Learning to walk in minutes using massively parallel deep reinforcement learning.
+\newblock In {\em Proceedings of the 5th Conference on Robot Learning ({CoRL})}, volume 164 of {\em Proceedings of Machine Learning Research}, pages 91--100. PMLR, 2022.
+\newblock \url{https://proceedings.mlr.press/v164/rudin22a.html}.
+
+\bibitem{schulman2017ppo}
+John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov.
+\newblock Proximal policy optimization algorithms.
+\newblock arXiv preprint arXiv:1707.06347, 2017.
+\newblock \url{https://arxiv.org/abs/1707.06347}.
 
 \bibitem{shahriari2016bo}
 Bobak Shahriari, Kevin Swersky, Ziyu Wang, Ryan~P. Adams, and Nando de~Freitas.

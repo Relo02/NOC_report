@@ -28,6 +28,10 @@
 \usepackage{caption}
 \usepackage{transparent}
 
+% PACKAGES FOR VECTOR DIAGRAMS
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,backgrounds}
+
 % STANDARD MATH PACKAGES
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -83,6 +87,21 @@
 \newcommand{\Rjerk}{R_{\mathrm{jerk}}}
 \newcommand{\thn}{\theta_0}
 \newcommand{\thst}{\theta_{\mathrm{dep}}}
+\newcommand{\Tstr}{T_{\mathrm{str}}}
+\newcommand{\Tst}{T_{\mathrm{st}}}
+\newcommand{\Tsw}{T_{\mathrm{sw}}}
+\newcommand{\pf}{p^{\mathrm{f}}}
+\newcommand{\qdef}{q^{\mathrm{def}}}
+
+% Photograph of the G1: included automatically as soon as Images/G1.jpeg (or .jpg,
+% or .png) exists; until then a labelled placeholder box keeps the document
+% compilable and the figure layout unchanged.
+\newcommand{\gonephoto}{%
+  \IfFileExists{Images/G1.jpeg}{\includegraphics[width=\linewidth]{G1.jpeg}}{%
+  \IfFileExists{Images/G1.jpg}{\includegraphics[width=\linewidth]{G1.jpg}}{%
+  \IfFileExists{Images/G1.png}{\includegraphics[width=\linewidth]{G1.png}}{%
+    \fbox{\parbox[c][0.745\linewidth][c]{0.955\linewidth}{\centering\footnotesize\itshape
+      photograph of the G1 humanoid\\[2pt] \textrm{(add \texttt{Images/G1.jpeg})}}}}}}}
 
 \input{Configuration_files/config}
 
@@ -99,18 +118,16 @@
 \renewcommand{\abstract}{Autonomous navigation in an unknown, cluttered environment can be posed as a
 pair of nested optimization programs solved at every control cycle: a discrete shortest-path problem on a
 LiDAR-derived occupancy grid, and a continuous nonlinear program (NLP) that turns the resulting geometric
-reference into dynamically feasible velocity commands. This report analyses the map-free navigation stack of
-the \texttt{Go2\_navigation} project from exactly that optimization viewpoint. The plant is a legged robot
-abstracted as a body-frame holonomic agent with first-order actuator lag, yielding a six-state, three-input
-discrete model; the nonlinear MPC tracker built on it is a $456$-variable NLP with $306$ equality constraints,
-$1224$ smooth obstacle-barrier terms and a $5$~s horizon, formulated in CasADi and solved by IPOPT at
+reference into dynamically feasible velocity commands. Here, we analyze the map-free navigation of ground legged robots, such as a Unitree Go2 dog and G1 humanoid robots. The high level plant is simple non-linear forward kinematic dyanmics, valid for each legged robot
+abstracted as a body-frame holonomic agent with first-order actuator lag for modeling the low level dynamics latency, yielding a six-state, three-input
+discrete model; the nonlinear MPC tracker formulated in CasADi and solved by IPOPT at
 $10$~Hz. The eleven cost weights of that NLP are calibrated offline by a per-axis Bayesian scheme: one
 one-dimensional Gaussian process per weight, six closed-loop mission rollouts each, swept in order of
 influence with every optimum carried forward, for $67$ rollouts in total. Every claim in the
 performance analysis is produced by driving the deployed CasADi/IPOPT tracker in closed loop inside an offline
 harness, over three synthetic worlds and eleven parametric studies. The tuned weights turn a controller that
 never reaches the goal into one that does, and both the per-axis curves and an independent closed-loop
-ablation isolate the cause: two of the eleven weights --- the barrier radius and its steepness --- move the
+ablation isolate the cause: two of the eleven weights, the barrier radius and its steepness, move the
 mission score by a factor of $130$ more than the other nine combined.
 The study further quantifies the cost/performance frontier of the horizon ($0.52$~ms per additional step,
 closed-loop performance saturating at $N\!\approx\!20$), the $38.7\%$ computational saving of the
@@ -138,14 +155,16 @@ decouple the problem into a geometric planner and a low-level tracker, but if th
 other the planner produces paths the actuators cannot execute, and the tracker produces commands the geometry
 does not allow. Model Predictive Control (MPC) resolves the conflict by construction: it optimizes a finite
 sequence of future inputs subject to the actual dynamics and the actual constraints, and re-optimizes at every
-cycle \cite{rawlings2017mpc}. The price is computational: a nonlinear program must be solved to sufficient
-accuracy inside the sampling period, every period, on the robot.
+cycle \cite{rawlings2017mpc}. The price is computational for the motion planner point of view: a nonlinear program must be solved to sufficient
+accuracy inside the sampling period, every period, on the robot. However, this rolling horizon path planning, allows the robot to avoid simultaneously localize and map the enviroment. The presence of only a localization module throguh an EKF and the lack of complete SLAM, enables less computationally expensive navigation stack, which is an important contribution of this report.
 
-This report analyses the navigation stack of the \texttt{Go2\_navigation} project\footnote{Companion
-repository: \url{https://github.com/talos-robotics-ai/Go2_navigation}. The stack is deployed on a Unitree Go2
-quadruped, whose CHAMP locomotion controller \cite{champ} exposes a body-frame velocity interface; the same
-code has since been ported to a Unitree G1 humanoid, which is what makes the ``robot-agnostic'' claim
-testable.} from the point of view of the course, i.e.\ as a numerical optimization problem. Two programs are
+The goal is to analyze a Go2 and G1 navigation stack. The stack is deployed on a Unitree Go2
+quadruped, whose locomotion layer --- the CHAMP gait controller \cite{champ} on the simulated robot, the
+vendor's sport-mode controller on the physical one --- exposes a body-frame velocity interface; the same code
+has since been ported to a Unitree G1 humanoid walking under the AMO reinforcement-learning policy
+\cite{li2025amo}, which is what makes the ``robot-agnostic'' claim testable, due to the simple high level
+holonomic kinematic model derived from both systems. Section~\ref{sec:lowlevel} describes those two
+locomotion layers and the abstraction that makes them interchangeable. Two programs are
 solved at every planning cycle and are the object of the analysis:
 
 \begin{itemize}
@@ -161,41 +180,41 @@ solved at every planning cycle and are the object of the analysis:
 On top of these two runtime programs sits a third, solved once offline: the \emph{black-box} program of
 choosing the eleven cost weights of the MPC. Weight tuning is the practical bottleneck of any deployed MPC,
 it is not differentiable through the closed loop, and each evaluation costs a full navigation rollout. It is
-therefore attacked with Gaussian-process surrogates \cite{rasmussen2006gp,shahriari2016bo} --- but
+therefore attacked with Gaussian-process surrogates \cite{rasmussen2006gp,shahriari2016bo}, but
 \emph{one per coordinate} rather than one over all eleven, for reasons of sample density that
 Section~\ref{sec:bo} makes precise.
 
-\paragraph{Contributions of this report.}
-\begin{enumerate}[label=(\roman*)]
-  \item A complete and self-contained statement of the three optimization problems as they are actually
-        implemented --- including the details that matter numerically and are usually left out of a system
-        paper: sentinel padding of the obstacle parameters to freeze the NLP sparsity pattern, the
-        non-negativity constraint on the forward velocity, the semi-definiteness of the stage weight, and
-        the exact zero-order-hold discretization of the lag dynamics (Sections~\ref{sec:problem}
-        and~\ref{sec:formulation}).
-  \item An analysis of the solver side: NLP dimensions, IPOPT configuration, warm starting, and the failure
-        handling that a hard real-time deployment requires (Section~\ref{sec:optproc}).
-  \item A weight-tuning procedure sized to the budget a rollout-priced objective allows: one one-dimensional
-        Gaussian process per weight, swept in order of influence with each optimum carried forward, under an
-        explicit significance floor. It costs $67$ closed-loop rollouts, and it returns not only a tuned
-        vector but eleven measured curves showing how much each weight is worth
-        (Sections~\ref{sec:bo} and~\ref{sec:ofat}).
-  \item A quantitative closed-loop study --- eleven parametric campaigns, all driving the \emph{production}
-        CasADi/IPOPT tracker rather than a re-implementation --- of horizon length, sampling time, barrier
-        shape, effort and rate penalties, barrier count, terminal weight, warm start and model mismatch,
-        together with an ablation that identifies which weight group actually explains the tuning gain
-        (Section~\ref{sec:performance}).
-  \item A comparison of the deployed heuristic terminal cost with the infinite-horizon cost-to-go obtained
-        from the discrete algebraic Riccati equation of the linearised cruise dynamics
-        (Section~\ref{sec:terminal}), and an honest account of what the formulation does \emph{not}
-        guarantee (Section~\ref{sec:discussion}).
-\end{enumerate}
+% \paragraph{Contributions of this report.}
+% \begin{enumerate}[label=(\roman*)]
+%   \item A complete and self-contained statement of the three optimization problems as they are actually
+%         implemented --- including the details that matter numerically and are usually left out of a system
+%         paper: sentinel padding of the obstacle parameters to freeze the NLP sparsity pattern, the
+%         non-negativity constraint on the forward velocity, the semi-definiteness of the stage weight, and
+%         the exact zero-order-hold discretization of the lag dynamics (Sections~\ref{sec:problem}
+%         and~\ref{sec:formulation}).
+%   \item An analysis of the solver side: NLP dimensions, IPOPT configuration, warm starting, and the failure
+%         handling that a hard real-time deployment requires (Section~\ref{sec:optproc}).
+%   \item A weight-tuning procedure sized to the budget a rollout-priced objective allows: one one-dimensional
+%         Gaussian process per weight, swept in order of influence with each optimum carried forward, under an
+%         explicit significance floor. It costs $67$ closed-loop rollouts, and it returns not only a tuned
+%         vector but eleven measured curves showing how much each weight is worth
+%         (Sections~\ref{sec:bo} and~\ref{sec:ofat}).
+%   \item A quantitative closed-loop study --- eleven parametric campaigns, all driving the \emph{production}
+%         CasADi/IPOPT tracker rather than a re-implementation --- of horizon length, sampling time, barrier
+%         shape, effort and rate penalties, barrier count, terminal weight, warm start and model mismatch,
+%         together with an ablation that identifies which weight group actually explains the tuning gain
+%         (Section~\ref{sec:performance}).
+%   \item A comparison of the deployed heuristic terminal cost with the infinite-horizon cost-to-go obtained
+%         from the discrete algebraic Riccati equation of the linearised cruise dynamics
+%         (Section~\ref{sec:terminal}), and an honest account of what the formulation does \emph{not}
+%         guarantee (Section~\ref{sec:discussion}).
+% \end{enumerate}
 
-The remainder of the report follows the natural order of the design. Section~\ref{sec:problem} analyses the
-system and derives the state-space model. Section~\ref{sec:formulation} formulates the two runtime
-optimization programs. Section~\ref{sec:optproc} describes the numerical solution procedure, including the
-offline Bayesian tuning of the cost weights. Section~\ref{sec:performance} reports the numerical results, and
-Sections~\ref{sec:discussion} and~\ref{sec:conclusions} discuss limitations and conclude.
+% The remainder of the report follows the natural order of the design. Section~\ref{sec:problem} analyses the
+% system and derives the state-space model. Section~\ref{sec:formulation} formulates the two runtime
+% optimization programs. Section~\ref{sec:optproc} describes the numerical solution procedure, including the
+% offline Bayesian tuning of the cost weights. Section~\ref{sec:performance} reports the numerical results, and
+% Sections~\ref{sec:discussion} and~\ref{sec:conclusions} discuss limitations and conclude.
 
 %=============================================================================
 \section{Problem analysis}
@@ -208,19 +227,17 @@ The stack is a chain of ROS~2 nodes (Fig.~\ref{fig:arch}) that closes the loop b
 body-frame velocity interface of the locomotion controller:
 
 \begin{enumerate}[label=\arabic*.]
-  \item an \textbf{odometry bridge} that converts the EKF pose estimate into a single pose topic and
-        differentiates it, with an exponential filter, into a body-frame velocity estimate (the robot does
+  \item an \textbf{odometry bridge} that converts the extended-Kalman-filter (EKF) pose estimate into a
+        single pose topic and differentiates it, with an exponential filter, into a body-frame velocity estimate (the robot does
         not publish a usable body-frame twist);
   \item a \textbf{mapping module} that rebuilds a local Gaussian occupancy grid from the newest scan at
-        $1$~Hz, and maintains two forms of memory --- a sparse world-frame cell map with a $20$~s decay and a
-        topological navigation graph --- whose purpose is precisely to repair the failure mode analysed in
+        $1$~Hz, and maintains two forms of memory, a sparse world-frame cell map with a $20$~s decay and a
+        topological navigation graph, whose purpose is precisely to repair the failure mode analysed in
         Section~\ref{sec:localmin};
   \item the \textbf{\astar{} local planner}, which solves the discrete program of
         Section~\ref{sec:astar} on that grid;
   \item the \textbf{nonlinear MPC tracker}, which solves the NLP of Section~\ref{sec:nlp} at $10$~Hz and
         publishes a setpoint;
-  \item a \textbf{proportional velocity controller} at $20$~Hz that turns the setpoint into
-        \texttt{/cmd\_vel}, and a safety layer that gates it.
 \end{enumerate}
 
 \begin{figure}[htbp]
@@ -233,11 +250,317 @@ body-frame velocity interface of the locomotion controller:
 \end{figure}
 
 Two design decisions shape everything that follows. First, the locomotion layer is treated as an ideal
-velocity-tracking device with a time constant: the report never models legs, contacts or gait, and the
-quadruped is abstracted as a planar holonomic agent. Second, the map is \emph{local and volatile}. The
+velocity-tracking device with a time constant: the report never models legs, contacts or gait, and the robot
+is abstracted as a planar holonomic agent --- Sections~\ref{sec:platforms} and~\ref{sec:lowlevel} describe
+what that layer actually does on each of the two platforms, and why the same abstraction survives the
+difference between them. Second, the map is \emph{local and volatile}. The
 occupancy grid covers a fixed $10\times10$~m window centred on the robot and is rebuilt from scratch at every
 planning cycle, so the planning problem is genuinely map-free, and the geometric reference the MPC tracks is
 only valid for one grid width ahead.
+
+\subsection{The controlled platforms}
+\label{sec:platforms}
+
+The same stack drives two machines whose mechanics could hardly be more different: a Unitree Go2 quadruped
+(Fig.~\ref{fig:platforms}\subref{fig:platform-go2}) and a Unitree G1 humanoid
+(Fig.~\ref{fig:platforms}\subref{fig:platform-g1}). The Go2 has
+twelve actuated joints, three per leg; the G1 has twenty-nine, of which the locomotion layer of
+Section~\ref{sec:g1rl} drives fifteen --- the twelve leg joints and the three waist joints --- while the arms
+are held at a fixed posture. Neither joint set is ever addressed by the controller of this report. Both
+platforms are commanded through the same channel, a body-frame twist
+$u=(v_x^{\mathrm{cmd}},v_y^{\mathrm{cmd}},\omega^{\mathrm{cmd}})$, and both carry a 3-D LiDAR whose returns
+are the only exteroceptive input of the stack. Table~\ref{tab:platforms} collects what distinguishes them
+from the controller's point of view; everything else about the two robots is, by construction, invisible to
+it.
+
+\begin{figure}[htbp]
+  \centering
+  \subfloat[Unitree Go2 quadruped\label{fig:platform-go2}]{%
+    \begin{minipage}{0.47\textwidth}\centering
+      \includegraphics[width=\linewidth]{robot.jpeg}
+    \end{minipage}}
+  \hfill
+  \subfloat[Unitree G1 humanoid\label{fig:platform-g1}]{%
+    \begin{minipage}{0.47\textwidth}\centering
+      \gonephoto
+    \end{minipage}}
+  \caption{The two platforms on which the same navigation stack is deployed. (a) The Go2 quadruped, which
+  produced all the recorded runs of Section~\ref{sec:hardware}, with its LiDAR mounted on the head. (b) The G1
+  humanoid, to which the stack was ported without changing the optimization program: only the constants of the
+  actuator-lag model~\eqref{eq:lagcont} and the command mapping of Section~\ref{sec:g1rl} differ.}
+  \label{fig:platforms}
+\end{figure}
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{The two platforms as the controller sees them. The rows above the rule are properties of the
+  machine, those below are properties of the locomotion layer that receives the MPC command; the last row is
+  the only one that enters the optimization program, through the prediction model~\eqref{eq:lagcont}. The two
+  time constants were identified on the Go2 (Section~\ref{sec:model}) and carried over unchanged to the G1,
+  which is the concrete form the ``robot-agnostic'' claim takes.}
+  \label{tab:platforms}
+  \begin{tabular}{lll}
+    \toprule
+                                  & Unitree Go2                     & Unitree G1 \\
+    \midrule
+    Morphology                    & quadruped                       & humanoid \\
+    Actuated joints               & $12$ ($3$ per leg)              & $29$ ($15$ driven by the gait policy) \\
+    Exteroception                 & Unitree L1 LiDAR                & Livox MID-360 LiDAR \\
+    \midrule
+    Locomotion layer              & CHAMP gait controller           & AMO reinforcement-learning policy \\
+                                  & (vendor sport mode on hardware) & \\
+    Layer update rate             & $200$~Hz                        & $50$~Hz \\
+    Command interface             & body-frame twist $u$            & body-frame twist $u$, remapped \\
+                                  &                                 & (Section~\ref{sec:g1rl}) \\
+    Abstraction used by the MPC   & \multicolumn{2}{c}{first-order velocity lag, $\tau_v=0.12$~s, $\tau_w=0.10$~s} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Low-level locomotion layers}
+\label{sec:lowlevel}
+
+The controller analysed in this report never commands a joint. Its decision variable is a body-frame twist,
+and between that twist and the ground sits a platform-specific layer that turns it into joint commands at
+$200$~Hz on the Go2 and $50$~Hz on the G1. Only two properties of that layer reach the optimization problem:
+the twist is tracked with a first-order lag rather than instantaneously, and the tracking is fast enough,
+relative to the $10$~Hz MPC cycle, for the two layers to be designed separately. This section describes the
+two locomotion controllers to the depth needed to justify those two properties and no further --- the
+optimization content of the report starts in Section~\ref{sec:formulation}. Throughout, $q\in\R^{n_j}$
+denotes the vector of joint positions ($n_j=12$ on the Go2, $n_j=29$ on the G1), $\mathcal{T}\in\R^{n_j}$ the
+vector of joint torques, and $K_P,K_D\succ0$ the diagonal proportional and derivative gain matrices of the
+joint-level loop; the symbol $\tau$ is reserved for the actuator time constants of
+Section~\ref{sec:model}.
+
+\subsubsection{Model-based gait generation: CHAMP on the Go2}
+\label{sec:champ}
+
+CHAMP \cite{champ} is an open-source implementation of the hierarchical trot controller developed for the MIT
+Cheetah \cite{lee2013hierarchical,hyun2014trot}. It is a purely feedforward pipeline: a pattern modulator
+imposes the footfall sequence, a trajectory planner turns each leg's phase into a foot position, inverse
+kinematics (IK) turns that position into joint angles, and a joint-level impedance loop tracks them.\footnote{On
+the physical Go2 the same body-twist interface is served by Unitree's built-in sport-mode controller, which is
+closed-source; CHAMP is the locomotion layer of the simulated robot, and the one whose structure can be
+stated. The distinction does not reach the MPC: both accept a twist and return trunk motion, and it is only
+that input--output behaviour that Section~\ref{sec:model} models.}
+
+\paragraph{Pattern modulation.} Let $t$ denote time. Each leg $i\in\{\mathrm{LF},\mathrm{RF},\mathrm{LH},
+\mathrm{RH}\}$ carries a normalised stride clock
+\begin{equation}
+  \zeta_i(t)=\left(\frac{t}{\Tstr}-\zeta_i^{0}\right)\bmod 1\in[0,1),
+  \qquad \Tstr=\Tst+\Tsw ,
+  \label{eq:gaitphase}
+\end{equation}
+where $\Tst$ and $\Tsw$ are the stance and swing durations and $\zeta_i^{0}$ is the phase offset of leg $i$.
+Leg $i$ is in stance while $\zeta_i<\beta$ and in swing otherwise, with duty factor $\beta=\Tst/\Tstr$. The
+deployed configuration uses $\Tst=\Tsw=0.25$~s, hence $\Tstr=0.5$~s and $\beta=0.5$, and
+$\zeta^{0}=(0,\tfrac12,\tfrac12,0)$: the diagonal pairs move together, which is the trot.
+
+\paragraph{Where the command enters.} The commanded twist does not act on the legs directly; it acts on the
+\emph{step geometry}, through the Raibert foot-placement heuristic \cite{raibert1986legged}: a foot is placed
+half a step ahead of its nominal position, so that sweeping backwards during the stance interval $\Tst$
+displaces the trunk by exactly the commanded amount. Let $\bar\pf_i\in\R^3$ be the nominal (zero-command)
+position of foot $i$ in the body frame. Translating the nominal stance by the half-step
+$\tfrac{1}{2}\Tst\,(v_x^{\mathrm{cmd}},v_y^{\mathrm{cmd}},0)^{\!\top}$ and rotating it about the vertical axis
+by the half-stance yaw $\chi_g$ gives the foot displacement
+\begin{equation}
+  \Delta\pf_i \;=\; R_z(\chi_g)\Big(\bar\pf_i+\tfrac{1}{2}\Tst\,
+                  \big(v_x^{\mathrm{cmd}},v_y^{\mathrm{cmd}},0\big)^{\!\top}\Big)-\bar\pf_i ,
+  \qquad
+  \chi_g = 2\sin\!\Big(\tfrac{1}{4}\Tst\,\omega^{\mathrm{cmd}}\Big)\approx\tfrac{1}{2}\Tst\,\omega^{\mathrm{cmd}} ,
+  \label{eq:raibert}
+\end{equation}
+with $R_z(\cdot)$ the elementary rotation about the vertical axis.\footnote{The implementation obtains
+$\chi_g$ from the tangential half-step $\tfrac12\Tst\,\omega^{\mathrm{cmd}}d_c$, with $d_c$ the horizontal
+distance from the trunk centre to the nominal foot; $d_c$ cancels, leaving~\eqref{eq:raibert}. The small-angle
+form on the right is the yaw swept in half a stance interval, as expected.} The step length and the heading of
+the foot trajectory of leg $i$ follow as
+\begin{equation}
+  L_i = 2\big\|\Delta\pf_i\big\|_2 ,
+  \qquad
+  \chi_i=\operatorname{atan2}\big(\Delta\pf_{i,y},\,\Delta\pf_{i,x}\big),
+  \label{eq:steplen}
+\end{equation}
+the factor $2$ turning the half-step into the full stride of the foot. Equations~\eqref{eq:raibert} and
+\eqref{eq:steplen} are the whole of the command path: the three numbers the MPC publishes are compressed into
+one length and one angle per leg, and nothing else of the command reaches the robot.
+
+\paragraph{Foot trajectories and impedance.} With phase and step length fixed, each foot follows a planar
+curve in its own trajectory frame, rotated by $\chi_i$ and added to the nominal stance:
+$\pf_i=\bar\pf_i+(\,\xi\cos\chi_i,\ \xi\sin\chi_i,\ \eta\,)^{\!\top}$, where $\xi$ and $\eta$ are the
+longitudinal and vertical coordinates of the curve. In stance, parametrised by the normalised stance phase
+$\zeta_i^{\mathrm{st}}=\zeta_i/\beta\in[0,1)$, the foot sweeps backwards along a shallow arc that presses into
+the ground by $h_{\mathrm{st}}$,
+\begin{equation}
+  \xi=\tfrac{L_i}{2}\left(1-2\zeta_i^{\mathrm{st}}\right),\qquad
+  \eta=-h_{\mathrm{st}}\cos\!\left(\frac{\pi\,\xi}{L_i}\right);
+  \label{eq:stance}
+\end{equation}
+in swing, parametrised by $\zeta_i^{\mathrm{sw}}=(\zeta_i-\beta)/(1-\beta)\in[0,1)$, it follows a Bézier curve
+of degree $11$ through twelve control points $b_j\in\R^2$,
+\begin{equation}
+  (\xi,\eta)=\sum_{j=0}^{11}\binom{11}{j}
+             \big(\zeta_i^{\mathrm{sw}}\big)^{j}\big(1-\zeta_i^{\mathrm{sw}}\big)^{11-j}\,b_j ,
+  \label{eq:swing}
+\end{equation}
+whose horizontal spread is scaled by $L_i$ and whose vertical spread is scaled by the swing height
+$h_{\mathrm{sw}}$. The deployed gait uses $h_{\mathrm{sw}}=0.04$~m, $h_{\mathrm{st}}=0.01$~m and a nominal
+trunk height $h_0=0.225$~m. A closed-form IK then maps each foot position to the three joint angles of its
+leg, $q_i^{\mathrm{ref}}=\mathrm{IK}_i(\pf_i)$, and a proportional--derivative (PD) law closes the loop at the
+joints,
+\begin{equation}
+  \mathcal{T}_i = K_P\big(q_i^{\mathrm{ref}}-q_i\big)+K_D\big(\dot q_i^{\mathrm{ref}}-\dot q_i\big)
+  \;=\;\bm{J}_i(q_i)^{\!\top}F_i ,
+  \label{eq:impedance}
+\end{equation}
+where $\bm{J}_i$ is the foot Jacobian of leg $i$ --- set in bold to distinguish it from the MPC cost $J$ and
+from the tuning objective $\mathcal{J}$ of Section~\ref{sec:bo} --- and $F_i$ the equivalent force at the
+foot. Read from right to left, \eqref{eq:impedance} is the point of the architecture: a joint-space PD loop
+realises a virtual spring--damper at the foot, of Cartesian stiffness
+$\bm{J}_i^{-\top}K_P\bm{J}_i^{-1}$, so the leg absorbs terrain irregularity and impact by
+programmable compliance rather than by contact sensing or force control. This is what makes an open-loop gait
+generator survive on a real robot.
+
+\paragraph{Why this layer looks like a lag.} Three consequences propagate upstream, and they are the reason
+the model of Section~\ref{sec:model} has the form it has. First, the twist enters only through the step
+geometry~\eqref{eq:steplen}: no measured trunk velocity is fed back, so the layer is a feedforward map and the
+trunk velocity approaches the commanded one over roughly one stride rather than immediately. Second, that
+step geometry is re-evaluated only once per stride, so a command that changes faster than $1/\Tstr=2$~Hz is
+averaged, not tracked; a first-order lag with $\tau_v=0.12$~s reaches $98\%$ of its final value in
+$4\tau_v\approx\Tstr$, which is why the one-parameter fit of Section~\ref{sec:model} describes the layer as
+well as it does. Third, the gait applies its own saturation, $|v_x^{\mathrm{cmd}}|\le0.3$~m/s,
+$|v_y^{\mathrm{cmd}}|\le0.25$~m/s and $|\omega^{\mathrm{cmd}}|\le0.5$~rad/s in the deployed configuration.
+
+\subsubsection{Learned whole-body control: the AMO policy on the G1}
+\label{sec:g1rl}
+
+On the humanoid the same interface is produced by a neural network instead of a gait generator. The deployed
+controller is AMO (Adaptive Motion Optimization) \cite{li2025amo}, a reinforcement-learning (RL) policy
+trained in simulation for the G1 and its twenty-nine degrees of freedom (DoF). AMO is deliberately \emph{not} a walking controller: it is a
+loco-manipulation policy, trained to track torso height, torso orientation and upper-body targets while
+walking, on a hybrid dataset in which an offline trajectory-optimization module supplies whole-body
+references that are kinematically consistent with the commanded end-effector motion. The navigation stack
+exercises only its locomotion subset --- the arms are held at the default posture and only the base command
+is driven --- but the policy is the one trained for the larger task, which is what makes the same platform
+usable for manipulation later without changing the layer the MPC talks to.
+
+\paragraph{Structure.} At each tick $k$ of the $50$~Hz policy loop, the network maps an observation to an
+action,
+\begin{equation}
+  a_k=\pi(o_k)\in\R^{15},
+  \qquad
+  o_k=\big(\,\omega^{\mathrm{b}}_k,\ \hat g_k,\ \tilde u_k,\ q_k-\qdef,\ \dot q_k,\ a_{k-1}\,\big),
+  \label{eq:rlpolicy}
+\end{equation}
+where $\omega^{\mathrm{b}}_k\in\R^3$ is the body angular velocity, $\hat g_k\in\R^3$ the gravity direction
+expressed in the body frame (the tilt an inertial measurement unit (IMU) provides without a global heading), $q_k,\dot q_k$ the
+measured joint positions and velocities of the $23$ observed joints, $\qdef$ the default posture,
+$a_{k-1}$ the previous action, and $\tilde u_k$ the command. The action is not a torque: it is an offset on
+the default posture, which the same joint-level PD law as~\eqref{eq:impedance} converts into torque,
+\begin{equation}
+  q_k^{\mathrm{ref}}=\qdef+s_a\,a_k,
+  \qquad
+  \mathcal{T}_k=K_P\big(q_k^{\mathrm{ref}}-q_k\big)+K_D\big(0-\dot q_k\big),
+  \label{eq:rlpd}
+\end{equation}
+with $s_a$ a fixed action scale and a zero reference joint velocity. The learned part of the controller is
+therefore exactly the map from observation to PD setpoint; the stabilising loop underneath it is the same
+fixed impedance as on the quadruped. The policy $\pi$ is obtained by proximal policy optimization (PPO)
+\cite{schulman2017ppo}, maximising the expected discounted return
+$\mathbb{E}\big[\sum_k\gamma^k\mathcal{R}_k\big]$ with $\gamma\in(0,1)$ and a stage reward $\mathcal{R}_k$
+that pays for tracking the commanded twist and penalises posture deviation, joint effort and action rate;
+masses, friction, gains and latencies are randomised during training so that the fixed policy transfers to
+hardware \cite{rudin2022walk}.
+
+\paragraph{The command mapping.} The command handed to the network is not the MPC twist but its image under a
+calibrated map, $\tilde u_k=\mathcal{M}(u_k)$, and that map is not a change of units. The policy's yaw channel
+is a heading \emph{offset} saturating at $\pm0.2$~rad rather than a yaw rate, its lateral channel uses the
+opposite sign convention, and the policy plants its feet whenever all three channels fall below a stand gate
+of about $0.1$ of full scale. The constants of $\mathcal{M}$ were identified so that the achieved twist
+matches the commanded one to within $10\%$ over the operating range. The stand gate is the one visible
+unmodelled nonlinearity of the cascade: a near-pure rotation in place, which the MPC produces when the
+reference turns sharply at low speed, falls below it and returns no motion at all.
+
+\subsubsection{The cascade and its abstraction seam}
+\label{sec:cascade}
+
+Fig.~\ref{fig:cascade} places the two locomotion layers in the control structure they belong to. The stack is
+a cascade of four loops whose rates are separated by roughly a decade each: the \astar{} reference is
+recomputed at $1$~Hz, the MPC at $10$~Hz, the locomotion layer at $50$--$200$~Hz, and the joint PD loop at the
+motor-driver rate. That separation is the standard justification for designing each layer against a static
+abstraction of the one below it, and the abstraction used here is deliberately minimal: three decoupled
+first-order lags, Eq.~\eqref{eq:lagcont}, whose time constants are identified in Section~\ref{sec:model}. Both
+locomotion layers, the hand-designed one and the learned one, are approximated by the same two numbers.
+
+This is the entire content of the ``robot-agnostic'' claim, and it is worth stating what it costs. The
+abstraction discards leg dynamics, contact, footstep timing and the two nonlinearities named above --- the
+gait saturation of Section~\ref{sec:champ} and the stand gate of Section~\ref{sec:g1rl}. What survives is a
+question of degree rather than of principle, and Section~\ref{sec:mismatch} answers it quantitatively by
+inflating the plant lags by $60$--$67\%$ against the model and measuring what the closed loop loses.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+    font=\footnotesize,
+    >={Latex[length=1.7mm]},
+    blk/.style={draw, rounded corners=2pt, align=center, inner sep=3.5pt, fill=black!3},
+    hlblk/.style={draw=bluePoli, line width=0.9pt, rounded corners=2pt, align=center, inner sep=4pt,
+                  fill=bluePoli!10},
+    sig/.style={->, semithick},
+    sl/.style={font=\scriptsize, inner sep=1.6pt},
+  ]
+    % ------------------------------------------------------------------ planning
+    \node[blk,  text width=44mm] (astar) at (0,4.4)  {\astar{} search on the occupancy grid\\$1$~Hz};
+    \node[hlblk,text width=44mm] (mpc)   at (0,2.75) {nonlinear MPC tracker\\$10$~Hz};
+
+    \draw[sig] (0,5.55) -- node[sl,right] {goal $x_g$} (astar.north);
+    \draw[sig] (astar) -- node[sl,right] {$x^{\mathrm{ref}}$} (mpc);
+
+    % --------------------------------------------------------- locomotion layer
+    \coordinate (split) at (0,1.35);
+    \node[blk, text width=52mm] (champ) at (-3.5,0.35)
+      {\textbf{Go2}: CHAMP gait generator\\
+       phase~\eqref{eq:gaitphase} $\to$ step~\eqref{eq:steplen} $\to$ foot~\eqref{eq:swing}\\
+       $\to$ IK $\to$ joint PD, $200$~Hz};
+    \node[blk, text width=52mm] (rl) at (3.5,0.35)
+      {\textbf{G1}: AMO reinforcement-learning policy\\
+       $\mathcal{M}\to\pi$~\eqref{eq:rlpolicy} $\to$ PD setpoint~\eqref{eq:rlpd}\\
+       $\to$ joint PD, $50$~Hz};
+    \node[draw, dashed, rounded corners=3pt, fit=(champ)(rl)(split), inner sep=4pt] (llbox) {};
+    \node[sl, anchor=south west] at ([xshift=1pt]llbox.north west)
+      {low-level locomotion layer (platform-specific)};
+
+    \draw[sig] (mpc.south) -- node[sl, right, align=left]
+      {$u=(v_x,v_y,\omega)^{\mathrm{cmd}}$\\ first-order lag~\eqref{eq:lagcont}} (split);
+    \draw[sig] (split) -| (champ.north);
+    \draw[sig] (split) -| (rl.north);
+
+    % ------------------------------------------------------------------- plant
+    \node[blk, text width=26mm] (robot) at (0,-1.9) {robot $+$ ground};
+    \draw[sig] (champ.south) -- (robot.north west);
+    \draw[sig] (rl.south)    -- (robot.north east);
+    \node[sl] at (0,-1.15) {$\mathcal{T}$: joint torques};
+
+    % ---------------------------------------------------------------- feedback
+    \node[blk, text width=38mm] (est)  at (5.8,2.75) {state estimation (EKF)\\$\hat x$: pose $+$ body twist};
+    \node[blk, text width=38mm] (grid) at (5.8,4.4)  {Gaussian occupancy grid\\$\mathcal{P}_k$, rebuilt at $1$~Hz};
+
+    \draw[semithick] (robot.east) -- node[sl, above] {LiDAR, IMU, encoders} (9.0,-1.9) -- (9.0,4.4);
+    \draw[sig] (9.0,2.75) -- (est.east);
+    \draw[sig] (9.0,4.4)  -- (grid.east);
+    \draw[sig] (est.west)  -- (mpc.east);
+    \draw[sig] (grid.west) -- (astar.east);
+  \end{tikzpicture}
+  \caption{Cascaded structure of the controller, from the goal down to joint torques. The report analyses the
+  two stages at the top; everything inside the dashed box is a platform-specific locomotion layer that the MPC
+  sees only through the first-order lag~\eqref{eq:lagcont}, which is the abstraction seam of the design. The
+  rates fall by roughly a decade at every seam ($1$~Hz, $10$~Hz, $50$--$200$~Hz, motor-driver rate), which is
+  what allows the layers to be designed separately, and the two branches inside the dashed box --- a
+  hand-designed gait generator and a learned policy --- are interchangeable precisely because they present the
+  same twist interface $u$.}
+  \label{fig:cascade}
+\end{figure}
 
 \subsection{Environment representation}
 \label{sec:grid}
