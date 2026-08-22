@@ -231,9 +231,9 @@ body-frame velocity interface of the locomotion controller:
         single pose topic and differentiates it, with an exponential filter, into a body-frame velocity estimate (the robot does
         not publish a usable body-frame twist);
   \item a \textbf{mapping module} that rebuilds a local Gaussian occupancy grid from the newest scan at
-        $1$~Hz, and maintains two forms of memory, a sparse world-frame cell map with a $20$~s decay and a
-        topological navigation graph, whose purpose is precisely to repair the failure mode analysed in
-        Section~\ref{sec:localmin};
+        $1$~Hz and maintains a sparse world-frame cell map of confirmed obstacle cells (with a $20$~s
+        decay), on which the memory-augmented target rule of Section~\ref{sec:memoryfix} plans; its purpose
+        is precisely to repair the failure mode analysed in Section~\ref{sec:localmin};
   \item the \textbf{\astar{} local planner}, which solves the discrete program of
         Section~\ref{sec:astar} on that grid;
   \item the \textbf{nonlinear MPC tracker}, which solves the NLP of Section~\ref{sec:nlp} at $10$~Hz and
@@ -256,7 +256,8 @@ what that layer actually does on each of the two platforms, and why the same abs
 difference between them. Second, the map is \emph{local and volatile}. The
 occupancy grid covers a fixed $10\times10$~m window centred on the robot and is rebuilt from scratch at every
 planning cycle, so the planning problem is genuinely map-free, and the geometric reference the MPC tracks is
-only valid for one grid width ahead.
+only valid for one grid width ahead. Section~\ref{sec:localmin} measures what this choice costs, and
+Section~\ref{sec:memoryfix} what it takes to repair it.
 
 \subsection{The controlled platforms}
 \label{sec:platforms}
@@ -567,9 +568,7 @@ locomotion layers, the hand-designed one and the learned one, are approximated b
     \draw[sig] (est.west)  -- (mpc.east);
     \draw[sig] (grid.west) -- (astar.east);
   \end{tikzpicture}
-  \caption{Cascaded structure of the controller, from the goal down to joint torques. The report analyses the
-  two stages at the top; everything inside the dashed box is a platform-specific locomotion layer that the MPC
-  sees only through the first-order lag~\eqref{eq:lagcont}, which is the abstraction seam of the design. The
+  \caption{Cascaded structure of the controller, from the goal down to joint torques. The
   rates fall by roughly a decade at every seam ($1$~Hz, $10$~Hz, $50$--$200$~Hz, motor-driver rate), which is
   what allows the layers to be designed separately, and the two branches inside the dashed box, a
   hand-designed gait generator and a learned policy, are interchangeable precisely because they present the
@@ -598,10 +597,7 @@ with $\Phi$ the standard normal cumulative distribution function,
 and $\sigma=0.15$~m. Equation~\eqref{eq:grid} is an \emph{inflation}
 model: it is not a Bayesian occupancy update (there is no recursive filtering, no ray casting and no free-space
 carving), but a smooth, monotone map from clearance to cost, whose one parameter $\sigma$ sets the width of
-the obstacle halo. Cells with $P(c)\ge P_{\mathrm{thr}}=0.4$ are hard obstacles; note that
-$1-\Phi(1)\approx0.159$ and $1-\Phi(0.25)\approx0.40$, so the hard boundary sits at
-$d_{\min}\approx0.25\sigma=0.0375$~m of a return, the effective body clearance is produced by the
-\emph{soft} cost of Section~\ref{sec:astar}, not by the threshold. The left panel of
+the obstacle halo. Cells with $P(c)\ge P_{\mathrm{thr}}=0.4$ are hard obstacles. The left panel of
 Fig.~\ref{fig:occprofile} shows the trade-off governed by $\sigma$: a small $\sigma$ leaves doorways open but
 hugs walls, a large one closes gaps the robot could physically cross.
 
@@ -650,23 +646,25 @@ while the pose obeys the holonomic body-to-world rotation
   \dot\psi = \omega .
   \label{eq:kincont}
 \end{equation}
-The identified constants are $\tau_v=0.12$~s and $\tau_w=0.10$~s.\footnote{In the deployed code the lateral
-velocity $v_y$ is propagated with $\tau_w$ rather than $\tau_v$, i.e.\ lateral motion is assumed to respond as
-fast as yaw. The two constants differ by $20$~ms, well inside the identification uncertainty, so the
-substitution is numerically immaterial; it is reported here because the analysis reproduces the deployed
-formulation exactly rather than an idealisation of it.}
+The identified constants are $\tau_v=0.12$~s and $\tau_w=0.10$~s.
+% \footnote{In the deployed code the lateral
+% velocity $v_y$ is propagated with $\tau_w$ rather than $\tau_v$, i.e.\ lateral motion is assumed to respond as
+% fast as yaw. The two constants differ by $20$~ms, well inside the identification uncertainty, so the
+% substitution is numerically immaterial; it is reported here because the analysis reproduces the deployed
+% formulation exactly rather than an idealisation of it.}
 
 Model~\eqref{eq:lagcont}--\eqref{eq:kincont} is holonomic: unlike a differential-drive vehicle, the platform
 can command a lateral velocity, so no nonholonomic constraint appears and the input set is a box. This is what
-makes the resulting NLP comparatively benign --- the nonlinearity is confined to the rotation
+makes the resulting NLP comparatively benign, the nonlinearity is confined to the rotation
 $R(\psi)$ and to the obstacle distances.
 
 Fig.~\ref{fig:lag} quantifies why the lag states are worth their computational cost. The left panel compares
 the true velocity response with the instantaneous model $v\equiv u$ for a step command; the right panel
 integrates the resulting velocity discrepancy over one $5$~s horizon and reports the peak position error as a
-function of $\tau_v$. At the identified $\tau_v=0.12$~s the instantaneous model mispredicts the horizon
-end-point by ${\sim}7$~cm, which is of the same order as the tracking accuracy the controller is asked to
-deliver.
+function of $\tau_v$.
+% At the identified $\tau_v=0.12$~s the instantaneous model mispredicts the horizon
+% end-point by ${\sim}7$~cm, which is of the same order as the tracking accuracy the controller is asked to
+% deliver.
 
 \begin{figure}[htbp]
   \centering
@@ -757,8 +755,9 @@ grid-induced zig-zag before it is handed to the MPC.
 Equation~\eqref{eq:localgoal} is a greedy, purely reactive rule, and it is the single most consequential
 approximation in the stack: the ray to the goal carries no information about the free-space topology, so a
 wall that separates the robot from the goal is re-discovered at every cycle and never remembered.
-Section~\ref{sec:localmin} shows the resulting livelock in a two-room world, which is exactly what the
-persistent cell map and the navigation graph of Section~\ref{sec:overview} exist to prevent.
+Section~\ref{sec:localmin} shows the resulting livelock in a two-room world, and
+Section~\ref{sec:memoryfix} repairs it by replacing the ray with the shortest path on the \emph{remembered}
+map --- of which~\eqref{eq:localgoal} is exactly the empty-memory special case.
 
 \begin{figure}[htbp]
   \centering
@@ -1288,8 +1287,15 @@ the significance floor by three orders of magnitude are both barrier parameters,
 a consistent direction: it makes the barrier \emph{narrow} ($\robs$ from $0.80$ to $0.098$~m) and
 \emph{steep} ($\aobs$ from $8$ to $12.1$~m$^{-1}$), demoting~\eqref{eq:barrier} from a long-range repulsive
 field to a short-range safety net and delegating geometric obstacle avoidance to the \astar{} layer that is
-already solving that problem globally on the grid. The effort weights rise by an order of magnitude, which
-buys smoothness. The six greyed weights --- among them every tracking weight and the terminal multiplier ---
+already solving that problem globally on the grid. One number in this story must not be taken at face
+value: $\robs=0.098$~m is the optimum for a robot \emph{with no body}. The harness plant is a point, so the
+tuner is free to strip the safety net down to almost nothing and cash the freed clearance in as progress;
+on the physical platform the same number places the barrier boundary well inside the robot's own footprint,
+and the quadruped brushes every door frame it passes. The deployed configuration therefore floors the
+safety radius at the body radius, $\robs\ge0.30$~m --- the direction of the tuning result (narrow and
+steep) is kept, its magnitude is bounded below by the geometry the tuning objective could not see.
+Section~\ref{sec:memoryfix} returns to this point when the stack runs on the simulated quadruped. The
+effort weights rise by an order of magnitude, which buys smoothness. The six greyed weights --- among them every tracking weight and the terminal multiplier ---
 do not move the objective measurably, and the report's parametric studies in Sections~\ref{sec:weights}
 and~\ref{sec:terminalsweep} confirm independently that they are weak knobs.
 
@@ -1308,9 +1314,10 @@ deliberate simplifications isolate the optimization layer from the rest of the s
   \item the ROS~2 cascade (setpoint low-pass filter and proportional \texttt{/cmd\_vel} controller) is
         bypassed and $u^\star_0$ is applied directly to the plant, which is the textbook receding-horizon
         implementation;
-  \item the persistent cell map and the navigation graph are \emph{disabled}, so the planner sees only the
-        current scan. This is the worst case for the rolling-horizon rule~\eqref{eq:localgoal} and it is what
-        makes the failure mode of Section~\ref{sec:localmin} observable.
+  \item obstacle memory is switchable. With the persistent cell map \emph{disabled} the planner sees only
+        the current scan --- the worst case for the rolling-horizon rule~\eqref{eq:localgoal}, and what
+        makes the failure mode of Section~\ref{sec:localmin} observable. Section~\ref{sec:memoryfix}
+        switches the memory on, re-poses the target rule on it, and shows that this closes the failure.
 \end{itemize}
 The plant is the discrete model~\eqref{eq:veldisc}--\eqref{eq:posedisc}; the sensor is a ray-marched $180$-beam
 planar LiDAR with $6$~m range and $\sigma_{\mathrm{noise}}=1$~cm. Replanning runs at $1$~Hz, control at
@@ -1418,10 +1425,189 @@ only. The result is a limit cycle: locally optimal at every cycle, globally usel
 Three structural facts conspire here, and all three are properties of the \emph{formulation} rather than of
 the solver: the target rule~\eqref{eq:localgoal} is memoryless; the occupancy grid is volatile; and
 constraint~\eqref{eq:cons-vx} forbids reversing, so the only escape from a concave pocket is a wide forward
-arc. Adding memory is therefore not a refinement but a requirement, which is exactly what the deployed stack
-does with the $20$~s persistent cell map and the topological navigation graph disabled in this harness. This
-is the clearest illustration in the whole study of the difference between solving an optimization problem well
-and posing the right one.
+arc. Adding memory is therefore not a refinement but a requirement. Section~\ref{sec:memoryfix} adds it ---
+the persistent cell map is switched on and the target rule is re-posed as a shortest-path problem on the
+remembered world --- and the same trap is then solved. This is the clearest illustration in the whole study
+of the difference between solving an optimization problem well and posing the right one.
+
+\subsection{Closing the limit cycle: a memory-augmented target rule}
+\label{sec:memoryfix}
+
+The failure of Fig.~\ref{fig:localmin} lives in the target rule, so the repair must live there too. This
+subsection re-poses~\eqref{eq:localgoal} on an obstacle \emph{memory}, states the two design decisions that
+make the re-posed rule sound, and validates it --- first in the harness, then in a full physics simulation
+of the same world. The experiments run in a re-instantiation of the harness of Section~\ref{sec:setup} (the
+three worlds rebuilt from their specification, every module still the production code), in which the
+memoryless configuration reproduces the failure of Section~\ref{sec:localmin} exactly: $50.4$~m travelled in
+$120$~s, goal never reached, the trap now a clean period-$10$~s limit cycle of $0.4$~m amplitude against the
+second partition (Fig.~\ref{fig:memoryfix}, left).
+
+\paragraph{Memory.} Every LiDAR return is quantised to its $\Delta$-cell in the \emph{world} frame and
+stored with two scalars: the time it was last seen and the number of \emph{distinct scans} in which it has
+appeared. A cell is \emph{confirmed} once that count reaches two; unconfirmed cells expire with the map's
+decay time. This one-line filter is what keeps the memory honest against sensor noise: a wall is re-hit by
+every scan that ranges it, while a spurious return lands in its cell exactly once and is never allowed to
+become an obstacle. Confirmation lets evidence accumulate; a second mechanism lets contradicting evidence
+win: every beam that passes \emph{through} a remembered cell on its way to a farther return deletes that
+cell (free-space carving, stopping half a metre short of the endpoint so a ray never carves the surface it
+terminates on). A real wall cannot be carved --- beams end on it --- while a phantom cell standing in an
+open passage is crossed, and erased, by every scan that ranges through the passage. In the static harness
+with exact localisation carving is essentially inert and the decay is disabled; both mechanisms earn their
+place in the physics validation below, and the deployed stack keeps its $20$~s decay so that moving
+obstacles are eventually forgotten. Only confirmed cells are allowed to touch the planner at all --- hard
+vetoes and soft inflation alike --- so a one-off return never perturbs a cost anywhere.
+
+\paragraph{The global grid, and two hardening rules.} Let $\mathcal{M}_k$ be the confirmed cells at cycle
+$k$. A global grid $\mathcal{G}_k$ is built over the bounding box of $\mathcal{M}_k\cup\{\hat x,x_g\}$ with
+the same resolution and the same Gaussian inflation~\eqref{eq:grid} as the local window, evaluated against
+the remembered cells; space never observed is optimistically free. Three further rules are essential, and
+each was found by watching its absence fail. First, \textbf{confirmed cells are removed from the search
+graph outright} --- from the global grid \emph{and} from the local window --- not merely inflated. The tail
+of~\eqref{eq:grid} hard-blocks only cells within $0.25\sigma\approx4$~cm of a return, so under the soft
+cost~\eqref{eq:astarcost} a remembered wall is a \emph{finite} obstacle --- crossing it costs the search
+roughly $(1+w_{\mathrm{obs}})\Delta\approx9$~m of equivalent path length --- and an early version of this
+rule dutifully tunnelled through the partition of $\mathrm{E}_a$ the moment the true detour ($\approx14$~m)
+became more expensive than the wall. Inflation prices \emph{proximity}; memory records \emph{evidence}; only
+the latter may veto an edge, and it must veto it in both graphs, because a target that is legal globally can
+still tempt the \emph{local} search through a soft wall when goal and detour both fit in the window. Second,
+\textbf{one-cell pinholes among confirmed cells are sealed in the routing graph}: at the sensor's $6$~m
+range the $2°$ beam spacing exceeds the $0.25$~m cell size, so a remembered wall carries single-cell gaps
+that open and close as scans accumulate --- each one a phantom shortcut that flips the global route and,
+before sealing, left the robot dithering between the two ends of a half-confirmed wall. A gap narrower than
+one cell is narrower than the robot; it is never a route. Third, \textbf{the local execution graph carries
+the body}: confirmed cells are dilated by the robot radius ($0.25$~m) before they veto local edges, so no
+executed path passes within a body radius of known structure --- a $4$~cm clearance, perfectly survivable
+for the point mass of the harness, is a collision for a $0.37$~m-wide quadruped. The two graphs are
+deliberately \emph{not} treated alike: dilating the routing graph as well makes the committed route
+invalidate itself as the observed wall grows under the robot's own approach --- the rule falls back into
+exploration --- while sealing the execution graph after dilation counts the body twice and closes every
+doorway the robot actually fits through. Stability lives in the routing graph, clearance in the execution
+graph, and the flooring of the MPC safety radius at the same body radius (the $\robs$ discussion of
+Section~\ref{sec:bo}) closes the chain at the control layer.
+
+\paragraph{The re-posed target rule.} With $\pi_k$ the \astar{} path from $\hat x$ to $x_g$ on
+$\mathcal{G}_k$ (same edge cost~\eqref{eq:astarcost}), the local target becomes
+\begin{equation}
+  x_{\mathrm{local}} \;=\; \pi_k(s^\star),
+  \qquad
+  s^\star \;=\; \max\{\,s \;:\; \pi_k(s)\in\mathcal{W}(\hat x)\,\},
+  \label{eq:memgoal}
+\end{equation}
+the point where the globally consistent route exits the local window $\mathcal{W}$; the local \astar{} of
+Section~\ref{sec:astar} then refines the path inside the window, on the local grid augmented with the
+remembered cells. Two remarks. First, \eqref{eq:memgoal} contains~\eqref{eq:localgoal} as its empty-memory
+special case: with $\mathcal{M}_k=\varnothing$ the global grid is free space, $\pi_k$ is the straight
+segment to the goal, and its window exit \emph{is} the ray--boundary intersection. The greedy rule is not
+discarded; it is revealed as the prior from which evidence is allowed to subtract. Second, the rule
+deliberately has no ``goal inside the window'' shortcut: containment is not reachability, and if the known
+map forces a detour that leaves the window, the target must stay on the robot's side of the wall ---
+handing the local planner a target beyond a remembered wall is precisely the invitation to tunnel that the
+hard-cell rule exists to refuse. Third, the route is \emph{committed}: the previous $\pi_{k-1}$ is
+re-anchored at the robot and re-costed on $\mathcal{G}_k$ at every cycle, and the fresh optimum replaces it
+only when the committed route has become blocked or the new one undercuts it by more than $20\%$. While the
+map is still filling in, rival routes differ by fractions of a cell cost, and a rule that swaps on
+$\varepsilon$-improvements turns half-knowledge into oscillation. For the same reason the window-exit
+point itself is \emph{held} until the route genuinely changes or the robot reaches it: under a churning
+half-built map the exit point slides cycle to cycle, and the MPC otherwise chases a moving reference.
+
+\paragraph{Why the limit cycle is structurally excluded.} In a static world $\mathcal{M}_k$ is monotone:
+$\mathcal{M}_k\subseteq\mathcal{M}_{k+1}$, so the global graph only ever loses edges. Every attempt to use a
+passage that turns out to be blocked adds the blocking cells to $\mathcal{M}_k$ and permanently deletes that
+route; the grid is finite, so the rule can propose only finitely many distinct routes and can never propose
+the same refuted one twice. This is the invariant the limit cycle of Section~\ref{sec:localmin} violated ---
+there, the refutation was erased one grid width later --- and it is the same optimism-under-unknown argument
+that underlies replanning algorithms of the D\textsuperscript{*} family \cite{koenig2005dstarlite}. The
+price of optimism is, in general, a bounded exploration episode while unconfirmed gaps close; with scans
+ingested at the sensor rate, pinholes sealed and the route committed, that episode collapses in
+$\mathrm{E}_a$ to nothing visible --- the partition enters memory while the robot is still approaching it,
+the global path flips to the doorway at first contact, and the descent begins without a single reversal
+(Fig.~\ref{fig:memfixsnap}).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{fig_memory_fix.pdf}
+  \caption{The rebuilt $\mathrm{E}_a$ under the deployed weights $\thst$. Left: the memoryless
+  rule~\eqref{eq:localgoal} locks into a period-$10$~s limit cycle at the second partition and never
+  reaches the goal. Right: the memory-augmented rule~\eqref{eq:memgoal} turns down to the remembered doorway
+  before ever reaching the wall and takes the goal in $43$~s. Same worlds, same NLP, same weights ---
+  only the target rule differs.}
+  \label{fig:memoryfix}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{fig_local_minimum_fix.pdf}
+  \caption{Four cycles of the memory-augmented rule in $\mathrm{E}_a$ (orange: executed trajectory; dashed:
+  global path $\pi_k$ on the remembered map; green: local \astar{} path inside the dotted $10\times10$~m
+  window). At $t=10$~s, crossing the first doorway, the second partition is not yet in memory and $\pi_k$
+  is still the optimistic near-ray; by $t=20$~s the wall has been confirmed at a distance and the global
+  path has flipped, once, to the doorway below --- the robot angles down before ever reaching the wall,
+  threads the doorway at $t=27$~s and takes the goal at $t=43$~s without a single reversal.}
+  \label{fig:memfixsnap}
+\end{figure}
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{Memoryless rule~\eqref{eq:localgoal} against the memory-augmented rule~\eqref{eq:memgoal} in the
+  rebuilt worlds, deployed weights $\thst$, $120$~s cap. The MPC layer is untouched by the change, so the
+  solve-time statistics are those of Table~\ref{tab:closedloop}; the global layer adds $13$~ms per $1$~Hz
+  replan on the fully mapped $\mathrm{E}_a$ ($371$ confirmed cells).}
+  \label{tab:memoryfix}
+  \begin{tabular}{llccccc}
+    \toprule
+    World & target rule & goal & TTG [s] & dist.\ [m] & $e_{\mathrm{rms}}$ [m] & $d_{\min}$ [m] \\
+    \midrule
+    \multirow{2}{*}{$\mathrm{E}_a$ office}
+      & memoryless~\eqref{eq:localgoal} & no  & $>120$ & $50.35$ & $0.011$ & $0.51$ \\
+      & memory~\eqref{eq:memgoal} & \textbf{yes} & $\mathbf{42.9}$ & $20.97$ & $0.016$ & $0.46$ \\
+    \midrule
+    \multirow{2}{*}{$\mathrm{E}_b$ corridor}
+      & memoryless~\eqref{eq:localgoal} & \textbf{yes} & $\mathbf{36.9}$ & $18.06$ & $0.023$ & $0.31$ \\
+      & memory~\eqref{eq:memgoal} & \textbf{yes} & $38.3$ & $18.45$ & $0.018$ & $0.42$ \\
+    \midrule
+    \multirow{2}{*}{$\mathrm{E}_c$ clutter}
+      & memoryless~\eqref{eq:localgoal} & \textbf{yes} & $\mathbf{27.5}$ & $13.67$ & $0.021$ & $0.29$ \\
+      & memory~\eqref{eq:memgoal} & \textbf{yes} & $29.2$ & $14.28$ & $0.015$ & $0.46$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Table~\ref{tab:memoryfix} is the quantitative summary. In $\mathrm{E}_a$ the rule converts a permanent
+failure into a $42.9$~s success, and the comparison of distances is the cleanest possible statement of what
+was wrong: the memoryless controller spends $50.4$~m of walking on a cycle, while the memory-augmented one
+reaches a goal two rooms away in $21.0$~m --- well under half the distance the failing controller wastes,
+and within two metres of the shortest route through the two doorways. In the two worlds that were already
+solved the rule costs one to two seconds ($36.9\to38.3$~s, $27.5\to29.2$~s) and buys minimum clearance:
+$0.31\to0.42$~m and $0.29\to0.46$~m --- the price of the body-radius dilation, paid where the memoryless
+rule was shaving walls. In $\mathrm{E}_a$ the successful route holds $0.46$~m of clearance \emph{through}
+the $1.1$~m doorway that the failing configuration never reached.
+
+\paragraph{Validation in physics simulation.} As a final check that the mechanism, and not a property of
+the point-mass harness, is what closes the failure, the same two-room world was rebuilt as a Gazebo
+(Fortress) world and the \emph{complete} deployed stack was run on the simulated Go2 --- CHAMP gait
+generator, EKF state estimation, the full ROS~2 cascade that the harness of Section~\ref{sec:setup}
+deliberately bypasses, and the planner nodes importing the identical production modules. With the
+memoryless rule the robot walks to the second partition and then slides along it for the remaining two
+minutes --- it first touches the wall two body lengths from the doorway, and the ray rule walks it
+\emph{away} from the door --- travelling $41$~m in $240$~s without reaching the goal. With the
+memory-augmented rule (and the safety radius floored at the body radius) the robot walks the same route the
+harness predicts: through the first doorway, down the second partition at first contact, through the lower
+doorway and to the goal, in $142$~s of simulated time over $27.0$~m, without touching a wall. The gait
+walks at roughly a third of the harness cruise speed, which accounts for the longer clock; the route and
+its single commitment point are the same.
+
+The full cascade also earned its place in the design: two of the memory mechanisms exist \emph{because} the
+physics runs failed without them, and neither failure is observable in the harness, where localisation is
+exact. State-estimation drift and the spin of the LiDAR smear wall returns across real openings; with
+confirmation alone the phantom cells accumulate until the hardened map strangles the planner --- in one run
+the remembered ``walls'' sealed the first doorway and boxed the robot into the starting room. Free-space
+carving un-learns them, but carving \emph{without} the same-scan protection fails in the opposite
+direction: the drifted rays pass through the true wall, erase it, and the robot spends the rest of the run
+pushing against structure its map no longer contains. Confirmation, protected carving and the $30$~s decay
+are jointly what keep a world-frame memory sane on top of a drifting estimator --- a genuinely
+registration-limited regime that the clean harness cannot exhibit. Animated renderings of all runs, harness
+and Gazebo, accompany this report in \texttt{Videos/}.
 
 \subsection{Weight tuning by per-axis Gaussian processes}
 \label{sec:ofat}
@@ -1452,14 +1638,17 @@ This is the same conclusion the closed-loop ablation of Section~\ref{sec:sensiti
 independent route, and it is here obtained directly, without a surrogate over eleven coordinates to trust.
 
 \emph{Six evaluations per axis are enough where it matters.} The $\robs$ sweep places its optimum at
-$0.0977$~m; the value shipped in the deployed \texttt{planner\_params.yaml} is $0.098$~m. The $\aobs$ sweep
+$0.0977$~m; the full tuning campaign had converged to $0.098$~m. The $\aobs$ sweep
 gives $12.1$~m$^{-1}$ against a deployed $13.4$, and $R_{v_x}$ gives $9.74$ against $9.95$. On the parameters
 that move the objective, sixty-six evaluations reproduce a configuration that took an order of magnitude more.
 
 \emph{Five axes terminate on a box bound.} $Q_x$ and $Q_y$ settle at their lower bound of $50$, $R_{v_y}$ and
 $\Rjerk$ at their upper bounds, and $\robs$ within $5\%$ of its lower bound. When the optimum of a coordinate
 sits on the edge of its admissible interval, the binding constraint is the interval, not the optimizer: the
-search ranges of Table~\ref{tab:params} are themselves a design choice that deserves revisiting.
+search ranges of Table~\ref{tab:params} are themselves a design choice that deserves revisiting. For
+$\robs$ that revisiting has a physical answer: a safety radius smaller than the robot's half-width is not a
+tuning optimum but a modelling hole --- the point-mass plant cannot feel its own body --- and the interval's
+lower bound should have been the body radius from the start (Section~\ref{sec:memoryfix}).
 
 \emph{The method fails visibly, not silently.} On $R_\omega$ ($\Delta\mathcal{J}=0.007$) and on $\rho$
 ($\Delta\mathcal{J}=0.004$) the one-dimensional GP interpolates differences that are of the order of the
@@ -2065,6 +2254,9 @@ Table~\ref{tab:guidelines} collects the actionable outcome of the eleven campaig
       baseline's $500$ was on the wrong side (\S\ref{sec:barriersweep}). \\
     Steepness $\aobs$ & $13.4$~m$^{-1}$ / keep & Monotone clearance-vs-progress trade-off; flat barriers
       ($\aobs\!\le\!2$) stall and cost more iterations (\S\ref{sec:barriersweep}). \\
+    Safety radius $\robs$ & $0.098$ / \textbf{floor at body radius} & The point-mass optimum strips the
+      safety net --- a plant with no body cannot price clearance. Floored at $0.30$~m on the platform
+      (\S\ref{sec:memoryfix}). \\
     Barrier points $M$ & $12$ / $\mathbf{8}$ & $0.237$~ms per point, identical trajectory and iteration count
       from $M=4$ to $30$; large $M$ inflates the worst case (\S\ref{sec:nobs}). \\
     Effort scaling $R$ & $\mu=1$ / keep & Knee of a $20\times$ smoothness vs $50\%$ accuracy Pareto front
@@ -2077,7 +2269,8 @@ Table~\ref{tab:guidelines} collects the actionable outcome of the eleven campaig
     Integral action & absent / \textbf{add} & Persistent $6$~cm offset under a $0.2$~m/s input disturbance
       (\S\ref{sec:mismatch}). \\
     Planner memory & on / \textbf{required} & Without it the rolling-horizon rule livelocks in a two-room
-      world (\S\ref{sec:localmin}). \\
+      world (\S\ref{sec:localmin}); with confirmed cells and the re-posed target rule~\eqref{eq:memgoal}
+      the same world is solved (\S\ref{sec:memoryfix}). \\
     Weight tuning & per-axis GP, sequential & $67$ rollouts suffice; sweep in order of influence and carry each
       optimum forward --- the naive arrangement leaves $10/11$ curves uninformative (\S\ref{sec:ofat}). \\
     Weights worth tuning & $\robs,\aobs$ (then $R$) & $\Delta\mathcal{J}\approx13$ against $\le0.11$ for the
@@ -2107,11 +2300,12 @@ trade-off is the most valuable extension of this study.
 NLP successfully --- zero solver failures in more than $20\,000$ solves --- and the one systematic failure of
 the whole system is a \emph{modelling} failure: the greedy rolling-horizon target
 rule~\eqref{eq:localgoal}, which discards the topology of the free space and, combined with the volatile grid
-and the non-negativity of $v_x$, produces the livelock of Section~\ref{sec:localmin}. The deployed stack works
-around it with a decaying persistent map and a topological graph. A cleaner formulation would put the local
-target inside the optimization --- for instance a receding-horizon target chosen to minimise a
-value function learned or computed on the graph --- rather than fixing it by a ray intersection before the
-NLP is even built.
+and the non-negativity of $v_x$, produces the livelock of Section~\ref{sec:localmin}.
+Section~\ref{sec:memoryfix} repairs it at the level where it lives: the ray becomes the shortest path on a
+confirmed-cell memory, and the repair is validated both in the harness and in a physics simulation of the
+same world. What remains open is the cleaner formulation still --- putting the local target inside the
+optimization, for instance as a receding-horizon target chosen to minimise a value function computed on the
+remembered map, rather than fixing it by a graph search before the NLP is even built.
 
 \paragraph{Limits of the tuning.} The per-axis scheme buys its sample efficiency with an assumption of
 additive separability, and that assumption is not exactly true: Section~\ref{sec:barriersweep} exhibits the
@@ -2163,14 +2357,18 @@ states entirely, and the closed loop is nonetheless indifferent to it over three
 horizon and a reference regenerated every second, the terminal weight regularises but does not stabilise.
 Second, and more consequentially, the only systematic failure of the system is not in the optimization at all:
 the greedy rolling-horizon target rule livelocks in a two-room world where every individual NLP is solved
-correctly. Posing the right problem remains harder than solving it well.
+correctly. Re-posing that rule on a confirmed-cell memory --- the ray replaced by the shortest path on the
+remembered map, of which the ray is the empty-memory special case --- eliminates the livelock structurally:
+the same world is then solved in $43$~s and well under half the distance the failing controller wastes,
+with the NLP, the weights and the solver untouched. Posing the right problem remains harder than solving it well; it is
+also, on this evidence, where the performance was hiding.
 
 The natural continuations follow directly from the analysis: add integral action or a disturbance estimator to
 remove the measured steady-state offset; re-run the outer optimization on a widened box and against a
 closed-loop, mission-level objective, which the harness built for this report makes affordable; reduce
-$N$ to $20$ and $M$ to $8$ to recover the resulting computational headroom on the onboard computer; and
-replace the ray-based local target with one that respects the topology of the free space, so that the quality
-of the solution matches the quality of the solver.
+$N$ to $20$ and $M$ to $8$ to recover the resulting computational headroom on the onboard computer; and fold
+the target choice of Section~\ref{sec:memoryfix} into the optimization itself, so that the quality of the
+problem being posed matches, everywhere, the quality of the solver answering it.
 
 %=============================================================================
 \section*{Reproducibility}
@@ -2182,13 +2380,22 @@ production planner and tracker from the project repository, runs the parametric 
 those logs. The tuning curves of Fig.~\ref{fig:ofatcurves} come from $67$ additional closed-loop rollouts,
 six per axis plus one confirmation of the assembled vector, and the hardware figures from recorded ROS~2 bags
 of the physical robot. The deployed parameter vector $\thst$ of Table~\ref{tab:params} is the one shipped in
-\texttt{src/a\_star\_mpc\_planner/} \texttt{config/planner\_params.yaml}. Animated versions of
+\texttt{src/a\_star\_mpc\_planner/} \texttt{config/planner\_params.yaml}, with one deliberate exception:
+the safety radius is floored at the body radius, $\robs=0.30$~m (Section~\ref{sec:memoryfix}). Animated versions of
 Fig.~\ref{fig:traj1dgp}, showing the three configurations running the same mission side by side with live
 readouts of every quantity quoted in Section~\ref{sec:trajcompare}, accompany this report as
 \texttt{Videos/compare\_pillar\_field.mp4} and \texttt{Videos/compare\_s\_corridor.mp4}. Solve times in those
 recordings are wall-clock and therefore load-dependent: their absolute values differ from
 Table~\ref{tab:closedloop} by the machine load at recording time, while the ratio between configurations is
-stable to within $1\%$.
+stable to within $1\%$. The memory study of Section~\ref{sec:memoryfix} ships with its own artefacts: the
+rebuilt harness lives under \texttt{harness/} in the project repository (worlds, closed loop, figure and
+video generation), the memory-augmented rule is the production module
+\texttt{a\_star\_mpc\_planner/global\_memory\_planner.py} wired into the \astar{} node behind the
+\texttt{use\_global\_memory} parameter, the Gazebo replica of $\mathrm{E}_a$ is
+\texttt{sim\_worlds/worlds/office\_tworoom.world}, and the animated runs --- harness and Gazebo, memoryless
+and memory-augmented --- are \texttt{Videos/Ea\_star\_nomem.mp4}, \texttt{Videos/Ea\_star\_mem.mp4},
+\texttt{Videos/Eb\_star\_mem.mp4}, \texttt{Videos/Ec\_star\_mem.mp4},
+\texttt{Videos/gazebo\_tworoom\_memoryless.mp4} and \texttt{Videos/gazebo\_tworoom\_memory.mp4}.
 
 %=============================================================================
 \bibliography{bibliography}
