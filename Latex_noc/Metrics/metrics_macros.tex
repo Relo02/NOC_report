@@ -4,7 +4,7 @@
 %   rigenerare con:  python3 viz/make_results.py
 %              o con: python3 viz/results_tex.py
 %
-%   commit 158985edb8 on G1_optimal_trajectory   (2026-08-23T08:48:50+00:00)
+%   commit a54dfe30ec on G1_optimal_trajectory   (2026-08-24T10:03:22+00:00)
 %
 % CONVENZIONE
 %   - le macro NUMERICHE si espandono in contenuto da math mode:
@@ -28,14 +28,14 @@
 \providecommand{\restab}[1]{\input{\restabdir/#1}}
 
 % --- provenienza e profilo -----------------------------------------------
-\resdef{resCommit}{158985edb8} % commit corto
+\resdef{resCommit}{a54dfe30ec} % commit corto
 \resdef{resBranch}{G1\_optimal\_trajectory} % branch
 \resdef{resProfile}{\texttt{planner\_params\_g1.yaml}} % file YAML
-\resdef{resDate}{2026-08-23} % data della run
+\resdef{resDate}{2026-08-24} % data della run
 \resdef{resCasadi}{3.7.2}
 \resdef{resNumpy}{1.26.4}
 \resdef{resPython}{3.10.12}
-\resdef{resBag}{\texttt{industrial\_plant\_fix}} % bag usato
+\resdef{resBag}{\texttt{industrial\_plant\_v3}} % bag usato
 
 % --- parametri deployati (dal profilo, non copiati a mano) ---------------
 \resdef{resN}{15}              % orizzonte in passi
@@ -60,11 +60,11 @@
 \resdef{resIntegratorGain}{200} % rapporto Euler/punto medio
 
 % --- errore di predizione in anello aperto -------------------------------
-\resdef{resPredCycles}{775}    % cicli del bag usati
-\resdef{resPredOffset}{0.0244} % offset a k=0 [m]
-\resdef{resPredDivergence}{0.124} % divergenza a fine orizzonte [m]
-\resdef{resPredVsEuler}{7}     % divergenza / errore Euler
-\resdef{resPredVsMidpoint}{1428} % divergenza / errore punto medio
+\resdef{resPredCycles}{762}    % cicli del bag usati
+\resdef{resPredOffset}{0.0241} % offset a k=0 [m]
+\resdef{resPredDivergence}{0.305} % divergenza a fine orizzonte [m]
+\resdef{resPredVsEuler}{18}    % divergenza / errore Euler
+\resdef{resPredVsMidpoint}{3505} % divergenza / errore punto medio
 
 % --- struttura e sparsita' dell'NLP --------------------------------------
 \resdef{resNvar}{141}         % variabili decisionali a N=15
@@ -90,17 +90,17 @@
 
 % --- derivate: AD contro differenze finite -------------------------------
 \resdef{resDerivNvar}{141}      % variabili del punto di prova
-\resdef{resTimeF}{94.4}         % una valutazione di f [us]
-\resdef{resTimeGrad}{160.0}     % un gradiente per AD [us]
-\resdef{resADratio}{1.59}       % AD in valutazioni di f
-\resdef{resADratioMin}{1.21}
-\resdef{resADratioMax}{2.10}
+\resdef{resTimeF}{105.0}        % una valutazione di f [us]
+\resdef{resTimeGrad}{145.4}     % un gradiente per AD [us]
+\resdef{resADratio}{1.51}       % AD in valutazioni di f
+\resdef{resADratioMin}{1.28}
+\resdef{resADratioMax}{1.78}
 \resdef{resFDforwardEvals}{142}
 \resdef{resFDcentralEvals}{282}
 \resdef{resFDforwardErr}{5.50\times 10^{-8}}
 \resdef{resFDcentralErr}{1.29\times 10^{-10}}
 \resdef{resCycleBudget}{125}    % budget di ciclo [ms]
-\resdef{resFDcentralBudget}{21} % quota del budget per FD centrate [%]
+\resdef{resFDcentralBudget}{24} % quota del budget per FD centrate [%]
 
 % --- hessiana esatta contro L-BFGS ---------------------------------------
 \resdef{resIterExactHess}{20}
@@ -110,23 +110,23 @@
 % --- interior point contro active set ------------------------------------
 \resdef{resSolverIneqLow}{60}    % disuguaglianze, regime piccolo
 \resdef{resSolverIneqHigh}{300}  % disuguaglianze, regime grande
-\resdef{resSolverRatioLow}{3.4}  % vantaggio del punto interno, regime piccolo
-\resdef{resSolverRatioHigh}{68.1} % vantaggio del punto interno, regime grande
-\resdef{resSolverSameMinima}{yes}
+\resdef{resSolverRatioLow}{33.5} % vantaggio del punto interno, regime piccolo
+\resdef{resSolverRatioHigh}{10.0} % vantaggio del punto interno, regime grande
+\resdef{resSolverSameMinima}{no}
 
 % --- condizioni di ottimalita' lungo la missione -------------------------
 \resdef{resKKTcycles}{9}        % cicli analizzati
 \resdef{resLICQalways}{yes}
 \resdef{resStrictAlways}{yes}
 \resdef{resSOCalways}{yes}
-\resdef{resConeMin}{1}
+\resdef{resConeMin}{4}
 \resdef{resConeMax}{45}
 \resdef{resConeFirst}{45}       % cono al primo ciclo campionato
-\resdef{resConeLast}{8}         % cono all'ultimo
-\resdef{resActiveLast}{133}     % vincoli attivi all'ultimo ciclo
-\resdef{resLambdaMinWorst}{8.78\times 10^{-1}} % min sul profilo di lambda_min proiettato
-\resdef{resActiveBoundsMax}{44} % massimo di box attivi
-\resdef{resGradLagWorst}{7.23\times 10^{-8}} % residuo di stazionarieta' peggiore
+\resdef{resConeLast}{5}         % cono all'ultimo
+\resdef{resActiveLast}{136}     % vincoli attivi all'ultimo ciclo
+\resdef{resLambdaMinWorst}{8.37\times 10^{-1}} % min sul profilo di lambda_min proiettato
+\resdef{resActiveBoundsMax}{41} % massimo di box attivi
+\resdef{resGradLagWorst}{3.45\times 10^{-10}} % residuo di stazionarieta' peggiore
 
 % --- penalita' esatta l1 contro l2 ---------------------------------------
 \resdef{resDsafe}{1.10}     % distanza di sicurezza imposta [m]
@@ -137,44 +137,44 @@
 % --- vincolo terminale di equilibrio -------------------------------------
 \resdef{resTermSlackMax}{0}  % slack terminale massimo
 \resdef{resTermFeasible}{yes}
-\resdef{resTermCostMin}{0.2} % costo minimo [%]
-\resdef{resTermCostMax}{75.0} % costo massimo [%]
+\resdef{resTermCostMin}{3.3} % costo minimo [%]
+\resdef{resTermCostMax}{85.2} % costo massimo [%]
 \resdef{resLagDiscrete}{1.000000} % 1 - exp(-dt/tau) al profilo deployato
 
 % --- vincoli robusti (constraint tightening) -----------------------------
 \resdef{resBetaQuantile}{95}    % quantile usato per il tubo [%]
 \resdef{resBetaZero}{0.0000}    % margine a k=0 [m]
-\resdef{resBetaEnd}{0.2907}     % margine a fine orizzonte [m]
+\resdef{resBetaEnd}{0.4146}     % margine a fine orizzonte [m]
 \resdef{resBetaMonotone}{yes}
-\resdef{resRobustCases}{2}      % casi provati
-\resdef{resRobustEffective}{1}  % casi in cui il tubo morde
-\resdef{resRobustBestDelta}{0.241} % guadagno massimo di clearance [m]
+\resdef{resRobustCases}{6}      % casi provati
+\resdef{resRobustEffective}{3}  % casi in cui il tubo morde
+\resdef{resRobustBestDelta}{0.365} % guadagno massimo di clearance [m]
 
 % --- regolarita' della soluzione e biforcazione --------------------------
 \resdef{resBifLow}{200}          % ultimo W senza biforcazione
 \resdef{resBifHigh}{300}         % primo W con biforcazione
 \resdef{resBifDeployedBelow}{yes}
-\resdef{resBifBagCycle}{718}     % ciclo piu' impegnativo
-\resdef{resBifBagEver}{no}
+\resdef{resBifBagCycle}{664}     % ciclo piu' impegnativo
+\resdef{resBifBagEver}{yes}
 \resdef{resBifCostGap}{0.55}     % divario relativo fra i due minimi [%]
 
 % --- path following in theta contro riferimento a tempo ------------------
-\resdef{resVxTime}{0.214}    % vx media, riferimento a tempo
-\resdef{resVxTheta}{0.299}   % vx media, ascissa
-\resdef{resAdvanceTime}{0.635} % avanzamento [m]
-\resdef{resAdvanceTheta}{0.891}
-\resdef{resAdvanceGain}{40}  % guadagno [%]
-\resdef{resIterTime}{11.8}
-\resdef{resIterTheta}{20.0}
+\resdef{resVxTime}{0.189}    % vx media, riferimento a tempo
+\resdef{resVxTheta}{0.300}   % vx media, ascissa
+\resdef{resAdvanceTime}{0.568} % avanzamento [m]
+\resdef{resAdvanceTheta}{0.894}
+\resdef{resAdvanceGain}{58}  % guadagno [%]
+\resdef{resIterTime}{10.7}
+\resdef{resIterTheta}{19.7}
 \resdef{resVrefUnused}{33}   % velocita' lasciata inutilizzata da v_ref [%]
 \resdef{resPFcycles}{6}      % cicli confrontati
 
 % --- campagna orizzonte (N, dt) ------------------------------------------
 \resdef{resHorizonBudget}{125}    % budget di ciclo [ms]
-\resdef{resHorizonOverBudget}{0}  % configurazioni oltre budget
+\resdef{resHorizonOverBudget}{3}  % configurazioni oltre budget
 \resdef{resHorizonConfigs}{40}    % configurazioni provate
-\resdef{resHorizonDepTail}{34.1}  % p95 peggiore della configurazione deployata [ms]
-\resdef{resHorizonNondom}{5}      % configurazioni non dominate
+\resdef{resHorizonDepTail}{60.3}  % p95 peggiore della configurazione deployata [ms]
+\resdef{resHorizonNondom}{6}      % configurazioni non dominate
 \resdef{resHorizonDepNondom}{no}
 \resdef{resHorizonSplit}{6}       % soglia della fascia [s]
 \resdef{resHorizonLowT}{11.0}
@@ -182,8 +182,8 @@
 \resdef{resHorizonHighT}{22.7}
 \resdef{resHorizonHighC}{0.009}
 \resdef{resHorizonCheapN}{5}
-\resdef{resHorizonCheapDt}{0.20}
-\resdef{resHorizonCheapPtail}{11.6} % p95 della piu' economica [ms]
+\resdef{resHorizonCheapDt}{0.40}
+\resdef{resHorizonCheapPtail}{23.6} % p95 della piu' economica [ms]
 
 % --- orizzonte di controllo N_c ------------------------------------------
 \resdef{resNcCases}{10}     % configurazioni provate
