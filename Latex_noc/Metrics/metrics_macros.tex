@@ -100,6 +100,14 @@
 \resdef{resNpar}{121}         % parametri CasADi
 \resdef{resJacDensity}{1.73}  % densita' jacobiano [%]
 \resdef{resHessDensity}{4.45} % densita' hessiana [%]
+% Le quattro righe seguenti sono inserite A MANO in attesa del prossimo
+% make_results: results_tex.py ora le genera (funzione sec_nlp).
+% Valori riprodotti chiamando nlp_structure.structure(cfg, 15) sul profilo
+% deployato, N=15 M=8: n_var_state=96 n_var_input=45 n_eq_dyn=90 n_barrier=256.
+\resdef{resNvarState}{96}    % variabili di stato
+\resdef{resNvarInput}{45}    % variabili di ingresso
+\resdef{resNeqDyn}{90}       % uguaglianze di dinamica
+\resdef{resNBarrier}{256}    % termini di barriera nel costo
 \resdef{resNvarBig}{456}      % variabili a N=50
 \resdef{resNbig}{50}
 \resdef{resJacDensityBig}{0.54}
@@ -136,8 +144,9 @@
 % --- interior point contro active set ------------------------------------
 \resdef{resSolverIneqLow}{60}    % disuguaglianze, regime piccolo
 \resdef{resSolverIneqHigh}{300}  % disuguaglianze, regime grande
+\resdef{resSolverRatioMin}{1.2}  % vantaggio minimo del punto interno, regime piccolo
 \resdef{resSolverRatioLow}{2.2}  % vantaggio del punto interno, regime piccolo
-\resdef{resSolverRatioHigh}{68.2} % vantaggio del punto interno, regime grande
+\resdef{resSolverRatioHigh}{63.6} % vantaggio del punto interno, regime grande (sola riga in cui l'SQP converge)
 \resdef{resSolverSameMinima}{no}
 
 % --- condizioni di ottimalita' lungo la missione -------------------------
@@ -234,3 +243,19 @@
 \resdef{resParetoRelTime}{28.1}    % escursione relativa: tempo [%]
 \resdef{resParetoInformative}{yes}
 
+
+% --- implementazione e supervisore ---------------------------------------
+% Le righe seguenti sono inserite A MANO in attesa del prossimo make_results.
+% Provenienza: n_ops e n_param da guides/snippets/nlp_structure.py sul profilo
+% planner_params_g1.yaml (N=15); tempi a freddo e tassi di fallimento da
+% viz/out/horizon_sweep.json e viz/out/horizon_sweep_ext.json.
+\resdef{resNops}{3603}          % operazioni scalari del grafo SX espanso
+\resdef{resNparam}{121}         % slot di parametro dell'NLP
+\resdef{resColdDep}{0.15}       % primo solve alla configurazione deployata [s]
+\resdef{resColdMin}{0.055}      % primo solve, configurazione piu' economica [s]
+\resdef{resColdMax}{0.44}       % primo solve, N=40 [s]
+\resdef{resSweepSolves}{8688}   % solve dello sweep esteso
+\resdef{resSweepFails}{308}     % fallimenti IPOPT nello sweep esteso
+\resdef{resFailPctN}{0.7}       % tasso di fallimento a N=15 [%]
+\resdef{resFailPctNmid}{3.5}    % tasso di fallimento a N=26 [%]
+\resdef{resFailPctNbig}{6.5}    % tasso di fallimento a N=40 [%]

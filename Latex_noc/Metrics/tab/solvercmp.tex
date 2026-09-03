@@ -1,12 +1,13 @@
-\begin{tabular}{lrrrrc}
+\begin{tabular}{llrrrr}
   \toprule
-  regime & ineq. & IPOPT ms / iter & SQP ms / iter & speed-up & same min. \\
+  regime & instance & ineq. & IPOPT ms / iter & SQP+qpOASES ms / iter & speed-up \\
   \midrule
-  penalty (obstacles in the cost) & 60 & \textbf{67} / 20 & 146 / 6 & $2.2\times$ & yes \\
-  penalty (obstacles in the cost) & 60 & \textbf{89} / 23 & 860 / -1 & $9.6\times$ & no \\
-  penalty (obstacles in the cost) & 60 & \textbf{225} / 77 & 275 / 7 & $1.2\times$ & yes \\
-  $\ell^1$ (obstacles as constraints) & 300 & \textbf{146} / 35 & 9307 / 16 & $63.6\times$ & no \\
-  $\ell^1$ (obstacles as constraints) & 300 & \textbf{173} / 46 & 13204 / -1 & $76.4\times$ & no \\
-  $\ell^1$ (obstacles as constraints) & 300 & \textbf{162} / 45 & 11062 / -1 & $68.2\times$ & no \\
+  penalty  & bag cycle 436  & 60 & \textbf{67} / 20  & 146 / 6      & $2.2\times$ \\
+  penalty  & narrow gap     & 60 & \textbf{225} / 77 & 275 / 7      & $1.2\times$ \\
+  penalty  & centred pillar & 60 & \textbf{89} / 23  & \emph{fail}  & --- \\
+  \midrule
+  $\ell^1$ & bag cycle 436  & 300 & \textbf{146} / 35 & 9307 / 16   & $63.6\times^{\dagger}$ \\
+  $\ell^1$ & centred pillar & 300 & \textbf{173} / 46 & \emph{fail} & --- \\
+  $\ell^1$ & narrow gap     & 300 & \textbf{162} / 45 & \emph{fail} & --- \\
   \bottomrule
 \end{tabular}
